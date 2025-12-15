@@ -1,0 +1,334 @@
+{
+	"name": "metadata",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get Metadata1",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DelimitedText2",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"exists",
+						"itemName",
+						"itemType",
+						"size",
+						"lastModified"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get Metadata1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "varLastModified",
+					"value": {
+						"value": "@activity('Get Metadata1').output.lastModified",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable2",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "isFileModified",
+					"value": {
+						"value": "@and( \n    activity('Get Metadata1').output.exists,\n    greater(ticks(activity('Get Metadata1').output.lastModified),\n ticks(pipeline().parameters.LastRunTime))\n        )",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Set variable2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@variables('isFileModified')",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "noupdatemail",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": "https://prod-76.southeastasia.logic.azure.com:443/workflows/b8da4b4030e34f609f259766e30bd9f2/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=p1TGwcBFbhXFnrvoIutPHjqeb0oc5YUhy-Gf4s7rW7s",
+								"body": {
+									"value": "{\n    \"to\" : \"@{pipeline().parameters.NotificationEmail}\",\n    \"subject\" : \"ADF pipeline has no change\",\n    \"body\" : \"ADF pipeline has no change\"}\n",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Copy data1",
+							"type": "Copy",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "DelimitedTextSource",
+									"storeSettings": {
+										"type": "AzureBlobFSReadSettings",
+										"recursive": true,
+										"enablePartitionDiscovery": false
+									},
+									"formatSettings": {
+										"type": "DelimitedTextReadSettings"
+									}
+								},
+								"sink": {
+									"type": "AzureSqlSink",
+									"writeBehavior": "insert",
+									"sqlWriterUseTableLock": false,
+									"tableOption": "autoCreate",
+									"disableMetricsCollection": false
+								},
+								"enableStaging": false,
+								"translator": {
+									"type": "TabularTranslator",
+									"typeConversion": true,
+									"typeConversionSettings": {
+										"allowDataTruncation": true,
+										"treatBooleanAsNumber": false
+									}
+								}
+							},
+							"inputs": [
+								{
+									"referenceName": "DelimitedText2",
+									"type": "DatasetReference"
+								}
+							],
+							"outputs": [
+								{
+									"referenceName": "AzureSqlTable1",
+									"type": "DatasetReference"
+								}
+							]
+						},
+						{
+							"name": "Stored procedure1",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Copy data1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dim].[usp_MergePerson_SCD2]",
+								"storedProcedureParameters": {
+									"NewRecordsInserted": {
+										"value": "0",
+										"type": "Int32"
+									},
+									"PipelineName": {
+										"value": {
+											"value": "@pipeline().Pipeline",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PipelineRunID": {
+										"value": {
+											"value": "@pipeline().RunId",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"RecordsClosed": {
+										"value": "0",
+										"type": "Int32"
+									},
+									"RecordsUnchanged": {
+										"value": "0",
+										"type": "Int32"
+									},
+									"TotalProcessed": {
+										"value": "0",
+										"type": "Int32"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "AzureSqlDatabase",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "successmail",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Stored procedure1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"headers": {
+									"Content-Type": "application/json"
+								},
+								"url": "https://prod-76.southeastasia.logic.azure.com:443/workflows/b8da4b4030e34f609f259766e30bd9f2/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=p1TGwcBFbhXFnrvoIutPHjqeb0oc5YUhy-Gf4s7rW7s",
+								"body": {
+									"value": "{\n    \"to\" : \"@{pipeline().parameters.NotificationEmail}\",\n    \"subject\" : \"ADF pipeline has change\",\n    \"body\" : \"Changes updated\"\n}\n",
+									"type": "Expression"
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"LastRunTime": {
+				"type": "string",
+				"defaultValue": "2025-12-05T00:00:00Z"
+			},
+			"StagingSchema": {
+				"type": "string",
+				"defaultValue": "staging"
+			},
+			"StagingTable": {
+				"type": "string",
+				"defaultValue": "Person"
+			},
+			"NotificationEmail": {
+				"type": "string",
+				"defaultValue": "kskothawade@gmail.com"
+			}
+		},
+		"variables": {
+			"varFileName": {
+				"type": "String"
+			},
+			"varLastModified": {
+				"type": "String"
+			},
+			"varPreviousLastModified": {
+				"type": "String"
+			},
+			"varFileSize": {
+				"type": "String"
+			},
+			"varFileType": {
+				"type": "String"
+			},
+			"Set_FileName": {
+				"type": "String"
+			},
+			"Set_LastModified": {
+				"type": "String"
+			},
+			"Set_FileSize": {
+				"type": "String"
+			},
+			"Set_FileType": {
+				"type": "String"
+			},
+			"isFileModified": {
+				"type": "Boolean",
+				"defaultValue": false
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-12-10T07:30:12Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

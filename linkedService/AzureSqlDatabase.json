@@ -1,0 +1,16 @@
+{
+	"name": "AzureSqlDatabase",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Linked service to store metadata of a source file",
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "demoka.database.windows.net",
+			"database": "demodb",
+			"encrypt": "mandatory",
+			"trustServerCertificate": true,
+			"authenticationType": "SystemAssignedManagedIdentity"
+		}
+	}
+}

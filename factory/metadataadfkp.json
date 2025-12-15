@@ -1,0 +1,9 @@
+{
+	"name": "metadataadfkp",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "dbfbbc6b-7af2-4751-80a8-50e67b76f2f3",
+		"tenantId": "842e4e0e-1c63-4147-b5bc-2b8baed2f998"
+	}
+}
