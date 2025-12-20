@@ -1,0 +1,9 @@
+{
+	"name": "metadataKalpana",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "a8f688ff-0221-47e9-bae1-5ce88074db2b",
+		"tenantId": "d054ec41-416e-448d-ac9a-2f4046c9b3b2"
+	}
+}
